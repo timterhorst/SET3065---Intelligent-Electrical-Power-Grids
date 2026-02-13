@@ -79,7 +79,7 @@ for p in Pwpp_act:
     # values of load demand and wind power output) leads to a convergent OPF. 
     # Hence we use try: and except:
     try: 
-        pp.runpp(net)
+        pp.runpp(net, numba=False)
         pp.runopp(net, init='pf',verbose=False)
         
         # Store results
