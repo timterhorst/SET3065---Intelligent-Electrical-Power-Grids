@@ -25,7 +25,14 @@ def run_scenario(load_at_bus2_p_mw: float):
 def save_single_line_diagram(net, output_filename: str):
     """Save a simple one-line diagram for reporting."""
     plot_net = copy.deepcopy(net)
-    pp_plot.create_generic_coordinates(plot_net, overwrite=True)
+    # case4gs already ships with geodata; only create generic coordinates if needed.
+    if plot_net.bus_geodata.empty:
+        try:
+            pp_plot.create_generic_coordinates(plot_net, overwrite=True)
+        except ImportError as exc:
+            print(f"\nCould not create generic coordinates automatically: {exc}")
+            print("Skipping one-line diagram export in this environment.")
+            return
 
     plt.figure(figsize=(9, 6))
     pp_plot.simple_plot(
