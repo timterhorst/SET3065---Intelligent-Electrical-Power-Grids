@@ -1,6 +1,11 @@
+import copy
+from pathlib import Path
+
+import matplotlib.pyplot as plt
 import pandas as pd
 import pandapower as pp
 import pandapower.networks as pn
+import pandapower.plotting as pp_plot
 
 
 def run_scenario(load_at_bus2_p_mw: float):
@@ -15,6 +20,31 @@ def run_scenario(load_at_bus2_p_mw: float):
     net.load.loc[bus2_load_idx, "p_mw"] = load_at_bus2_p_mw
     pp.runpp(net, numba=False)
     return net
+
+
+def save_single_line_diagram(net, output_filename: str):
+    """Save a simple one-line diagram for reporting."""
+    plot_net = copy.deepcopy(net)
+    pp_plot.create_generic_coordinates(plot_net)
+
+    plt.figure(figsize=(9, 6))
+    pp_plot.simple_plot(
+        plot_net,
+        show_plot=False,
+        bus_size=1.4,
+        line_width=1.6,
+        plot_loads=True,
+        plot_gens=True,
+        plot_sgens=True,
+        scale_size=True,
+    )
+    plt.title("case4gs one-line diagram (base scenario)")
+    plt.axis("off")
+
+    output_path = Path(__file__).resolve().parent / output_filename
+    plt.savefig(output_path, dpi=200, bbox_inches="tight")
+    plt.close()
+    print(f"\nOne-line diagram saved to: {output_path}")
 
 
 # Scenario 1: original case file value
@@ -55,3 +85,5 @@ print(bus_comparison)
 
 print("\n=== Line loading comparison (reduced - base) ===")
 print(line_comparison)
+
+save_single_line_diagram(base_net, "case4gs_single_line.png")
