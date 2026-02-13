@@ -1,6 +1,6 @@
 # SET3065 — Intelligent Electrical Power Grids
 
-Starter repository for practical coding work in the SET3065 course.
+Coursework repository for practical coding work in SET3065.
 
 ## Quick start
 
@@ -11,33 +11,79 @@ Starter repository for practical coding work in the SET3065 course.
    source .venv/bin/activate
    ```
 
-2. Run the example simulation:
+2. Install dependencies:
+
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+3. Run the first assignment example (A1):
+
+   ```bash
+   python3 A1/case4gs_simple.py
+   ```
+
+## Assignment files and run commands
+
+### A1
+
+```bash
+python3 A1/case4gs_simple.py
+```
+
+### A2
+
+```bash
+python3 A2/opf_ieee9_wind.py
+python3 A2/prob_opf_ieee9_wind.py
+```
+
+Notes:
+- `ieee9-wind.xlsx` is loaded using the script directory path.
+- Plot images are saved into `A2/` as PNG files.
+
+### A3 / A4 notebooks
+
+Install Jupyter if needed:
+
+```bash
+pip install jupyterlab
+```
+
+Launch notebooks:
+
+```bash
+jupyter lab
+```
+
+Open:
+- `A3/A6.ipynb`
+- `A4/Assignment_generativeAI_system_planning.ipynb`
+- `A4/Answer_of_Assignment_generativeAI_system_planning.ipynb`
+
+## Optional starter simulation (custom example)
+
+Run the lightweight standalone frequency-control demo:
 
    ```bash
    python3 examples/frequency_control_example.py
    ```
 
-3. (Optional) Export the simulation trace to CSV:
+Export simulation trace to CSV:
 
    ```bash
    python3 examples/frequency_control_example.py --csv outputs/frequency_trace.csv
    ```
 
-## What the example does
-
-The example models one control area with a simple governor-frequency response:
-
-- A load disturbance is applied at a configured time.
-- Generation automatically adjusts according to droop control.
-- Grid frequency deviates from nominal and then settles.
-
-This is intentionally lightweight and dependency-free so you can run it immediately
-and extend it for your coursework.
-
 ## Repository layout
 
 ```text
+A1/
+A2/
+A3/
+A4/
 examples/
-  frequency_control_example.py   # runnable starter model
+  frequency_control_example.py
+requirements.txt
 README.md
 ```
