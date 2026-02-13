@@ -25,33 +25,27 @@ def run_scenario(load_at_bus2_p_mw: float):
 def save_single_line_diagram(net, output_filename: str):
     """Save a simple one-line diagram for reporting."""
     plot_net = copy.deepcopy(net)
-    # case4gs already ships with geodata; only create generic coordinates if needed.
-    if plot_net.bus_geodata.empty:
-        try:
-            pp_plot.create_generic_coordinates(plot_net, overwrite=True)
-        except ImportError as exc:
-            print(f"\nCould not create generic coordinates automatically: {exc}")
-            print("Skipping one-line diagram export in this environment.")
-            return
+    try:
+        plt.figure(figsize=(9, 6))
+        pp_plot.simple_plot(
+            plot_net,
+            show_plot=False,
+            bus_size=1.4,
+            line_width=1.6,
+            plot_loads=True,
+            plot_gens=True,
+            plot_sgens=True,
+            scale_size=True,
+        )
+        plt.title("case4gs one-line diagram (base scenario)")
+        plt.axis("off")
 
-    plt.figure(figsize=(9, 6))
-    pp_plot.simple_plot(
-        plot_net,
-        show_plot=False,
-        bus_size=1.4,
-        line_width=1.6,
-        plot_loads=True,
-        plot_gens=True,
-        plot_sgens=True,
-        scale_size=True,
-    )
-    plt.title("case4gs one-line diagram (base scenario)")
-    plt.axis("off")
-
-    output_path = Path(__file__).resolve().parent / output_filename
-    plt.savefig(output_path, dpi=200, bbox_inches="tight")
-    plt.close()
-    print(f"\nOne-line diagram saved to: {output_path}")
+        output_path = Path(__file__).resolve().parent / output_filename
+        plt.savefig(output_path, dpi=200, bbox_inches="tight")
+        plt.close()
+        print(f"\nOne-line diagram saved to: {output_path}")
+    except Exception as exc:
+        print(f"\nCould not export one-line diagram in this environment: {exc}")
 
 
 # Scenario 1: original case file value
