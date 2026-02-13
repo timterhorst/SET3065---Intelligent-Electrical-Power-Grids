@@ -80,7 +80,7 @@ for p in Pwpp_act:
     # Hence we use try: and except:
     try: 
         pp.runpp(net, numba=False)
-        pp.runopp(net, init='pf',verbose=False)
+        pp.runopp(net, init='pf', verbose=False, numba=False)
         
         # Store results
         plt.figure(1)

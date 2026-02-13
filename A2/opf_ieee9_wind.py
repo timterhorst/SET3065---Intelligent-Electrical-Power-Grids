@@ -10,7 +10,7 @@ THIS_DIR = Path(__file__).resolve().parent
 net = pp.from_excel(THIS_DIR / "ieee9-wind.xlsx")
 
 # Running the optimization power flow problem
-pp.runopp(net, init='pf',verbose=False)
+pp.runopp(net, init='pf', verbose=False, numba=False)
 print(f"The total cost is: {net.res_cost}.")
 
 # Plot bus voltages
