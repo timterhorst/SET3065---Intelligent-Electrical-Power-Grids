@@ -14,13 +14,13 @@ Starter repository for practical coding work in the SET3065 course.
 2. Run the example simulation:
 
    ```bash
-   python examples/frequency_control_example.py
+   python3 examples/frequency_control_example.py
    ```
 
 3. (Optional) Export the simulation trace to CSV:
 
    ```bash
-   python examples/frequency_control_example.py --csv outputs/frequency_trace.csv
+   python3 examples/frequency_control_example.py --csv outputs/frequency_trace.csv
    ```
 
 ## What the example does
