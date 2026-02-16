@@ -4,3 +4,5 @@ __pycache__/
 outputs/
 A1/*.png
 A2/*.png
+.DS_Store
+*.drawio
