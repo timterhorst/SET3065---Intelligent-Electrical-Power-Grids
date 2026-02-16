@@ -149,8 +149,14 @@ def plot_comparison(results_list, output_dir):
         print("No converged results to plot")
         return
     
-    # Create comparison plots - 2x3 grid layout
+    # Create comparison plots - 2x3 grid layout (Option B: Logical grouping)
+    # Row 1: Voltage metrics | Row 2: Power flow metrics
+    # Col 1-2: Detailed metrics | Col 3: Summary metrics
     fig, axes = plt.subplots(2, 3, figsize=(18, 10))
+    
+    # ========================================================================
+    # ROW 1: Voltage Metrics + Cost Summary
+    # ========================================================================
     
     # Plot 1: Voltage magnitudes comparison (Row 1, Col 1)
     ax1 = axes[0, 0]
@@ -168,66 +174,70 @@ def plot_comparison(results_list, output_dir):
     ax1.legend(fontsize=9)
     ax1.set_ylim([0.85, 1.15])  # Extended range to show limits
     
-    # Plot 2: Line loading comparison (Row 1, Col 2)
+    # Plot 2: Voltage deviation from nominal (1.0 pu) (Row 1, Col 2)
     ax2 = axes[0, 1]
-    for result in converged_results:
-        label = f"{result['case_name']} ({result['demand_multiplier']*100:.0f}% demand)"
-        ax2.plot(result['line_loading'].index, result['line_loading'].values,
-                marker='s', label=label, linewidth=2, markersize=6)
-    ax2.axhline(y=100, color='r', linestyle='--', linewidth=2, alpha=0.7, label='100% Loading Limit')
-    ax2.set_xlabel('Line Index', fontsize=12)
-    ax2.set_ylabel('Line Loading (%)', fontsize=12)
-    ax2.set_title('Line Loading Comparison', fontsize=14, fontweight='bold')
-    ax2.grid(True, alpha=0.3)
-    ax2.legend(fontsize=9)
-    
-    # Plot 3: Branch Active Power Losses (Row 1, Col 3) - NEW PLOT
-    ax3 = axes[0, 2]
-    for result in converged_results:
-        label = f"{result['case_name']} ({result['demand_multiplier']*100:.0f}% demand)"
-        ax3.plot(result['branch_losses'].index, result['branch_losses'].values,
-                marker='^', label=label, linewidth=2, markersize=6)
-    ax3.set_xlabel('Line Index', fontsize=12)
-    ax3.set_ylabel('Active Power Losses [MW]', fontsize=12)
-    ax3.set_title('Branch Active Power Losses Comparison', fontsize=14, fontweight='bold')
-    ax3.grid(True, alpha=0.3)
-    ax3.legend(fontsize=9)
-    
-    # Plot 4: Voltage deviation from nominal (1.0 pu) (Row 2, Col 1)
-    ax4 = axes[1, 0]
     for result in converged_results:
         voltage_deviation = (result['voltages'] - 1.0) * 100  # Convert to percentage
         label = f"{result['case_name']} ({result['demand_multiplier']*100:.0f}% demand)"
-        ax4.plot(voltage_deviation.index, voltage_deviation.values,
+        ax2.plot(voltage_deviation.index, voltage_deviation.values,
                 marker='o', label=label, linewidth=2, markersize=6)
     # Add voltage limit lines (converted to percentage deviation)
-    ax4.axhline(y=10, color='red', linestyle='--', linewidth=1.5, alpha=0.7, label='Upper limit (+10%)')
-    ax4.axhline(y=-10, color='red', linestyle='--', linewidth=1.5, alpha=0.7, label='Lower limit (-10%)')
-    ax4.axhline(y=0, color='k', linestyle='-', linewidth=1)
-    ax4.set_xlabel('Bus Index', fontsize=12)
-    ax4.set_ylabel('Voltage Deviation from 1.0 pu (%)', fontsize=12)
-    ax4.set_title('Voltage Deviation Analysis', fontsize=14, fontweight='bold')
-    ax4.grid(True, alpha=0.3)
-    ax4.legend(fontsize=9)
+    ax2.axhline(y=10, color='red', linestyle='--', linewidth=1.5, alpha=0.7, label='Upper limit (+10%)')
+    ax2.axhline(y=-10, color='red', linestyle='--', linewidth=1.5, alpha=0.7, label='Lower limit (-10%)')
+    ax2.axhline(y=0, color='k', linestyle='-', linewidth=1)
+    ax2.set_xlabel('Bus Index', fontsize=12)
+    ax2.set_ylabel('Voltage Deviation from 1.0 pu (%)', fontsize=12)
+    ax2.set_title('Voltage Deviation Analysis', fontsize=14, fontweight='bold')
+    ax2.grid(True, alpha=0.3)
+    ax2.legend(fontsize=9)
     
-    # Plot 5: Total cost comparison (Row 2, Col 2)
-    ax5 = axes[1, 1]
+    # Plot 3: Total cost comparison (Row 1, Col 3)
+    ax3 = axes[0, 2]
     cases = [r['case_name'] for r in converged_results]
     costs = [r['total_cost'] for r in converged_results]
     colors = plt.cm.viridis(np.linspace(0, 1, len(cases)))
-    bars = ax5.bar(range(len(cases)), costs, color=colors)
-    ax5.set_xticks(range(len(cases)))
-    ax5.set_xticklabels(cases, rotation=45, ha='right')
-    ax5.set_ylabel('Total Cost ($)', fontsize=12)
-    ax5.set_title('Total Cost Comparison', fontsize=14, fontweight='bold')
-    ax5.grid(True, alpha=0.3, axis='y')
+    bars = ax3.bar(range(len(cases)), costs, color=colors)
+    ax3.set_xticks(range(len(cases)))
+    ax3.set_xticklabels(cases, rotation=45, ha='right')
+    ax3.set_ylabel('Total Cost ($)', fontsize=12)
+    ax3.set_title('Total Cost Comparison', fontsize=14, fontweight='bold')
+    ax3.grid(True, alpha=0.3, axis='y')
     # Add value labels on bars
     for bar, cost in zip(bars, costs):
         height = bar.get_height()
-        ax5.text(bar.get_x() + bar.get_width()/2., height,
+        ax3.text(bar.get_x() + bar.get_width()/2., height,
                 f'${cost:.0f}', ha='center', va='bottom', fontsize=9)
     
-    # Plot 6: Total System Losses Comparison (Row 2, Col 3) - NEW PLOT
+    # ========================================================================
+    # ROW 2: Power Flow Metrics + Losses Summary
+    # ========================================================================
+    
+    # Plot 4: Line loading comparison (Row 2, Col 1)
+    ax4 = axes[1, 0]
+    for result in converged_results:
+        label = f"{result['case_name']} ({result['demand_multiplier']*100:.0f}% demand)"
+        ax4.plot(result['line_loading'].index, result['line_loading'].values,
+                marker='s', label=label, linewidth=2, markersize=6)
+    ax4.axhline(y=100, color='r', linestyle='--', linewidth=2, alpha=0.7, label='100% Loading Limit')
+    ax4.set_xlabel('Line Index', fontsize=12)
+    ax4.set_ylabel('Line Loading (%)', fontsize=12)
+    ax4.set_title('Line Loading Comparison', fontsize=14, fontweight='bold')
+    ax4.grid(True, alpha=0.3)
+    ax4.legend(fontsize=9)
+    
+    # Plot 5: Branch Active Power Losses (Row 2, Col 2)
+    ax5 = axes[1, 1]
+    for result in converged_results:
+        label = f"{result['case_name']} ({result['demand_multiplier']*100:.0f}% demand)"
+        ax5.plot(result['branch_losses'].index, result['branch_losses'].values,
+                marker='^', label=label, linewidth=2, markersize=6)
+    ax5.set_xlabel('Line Index', fontsize=12)
+    ax5.set_ylabel('Active Power Losses [MW]', fontsize=12)
+    ax5.set_title('Branch Active Power Losses Comparison', fontsize=14, fontweight='bold')
+    ax5.grid(True, alpha=0.3)
+    ax5.legend(fontsize=9)
+    
+    # Plot 6: Total System Losses Comparison (Row 2, Col 3)
     ax6 = axes[1, 2]
     total_losses = [r['total_losses'] for r in converged_results]
     colors_losses = plt.cm.plasma(np.linspace(0, 1, len(cases)))
