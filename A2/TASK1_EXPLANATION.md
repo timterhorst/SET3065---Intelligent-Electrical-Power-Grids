@@ -34,8 +34,8 @@ In this analysis, we use `pp.runopp()` which solves the AC OPF problem.
 2. **`change_wind_location()`**: Moves wind power plant subsystem connection
    - Modifies transformer 3's high-voltage bus connection (the transformer connecting wind subsystem to main grid)
    - Transformer 3 connects the main 230 kV grid to Bus 9 (110 kV) of the wind subsystem
-   - Changes transformer 3's `hv_bus` from 4 to target bus (5 or 7)
-   - **Important**: Transformer 3's voltage rating (`vn_hv_kv`) remains 230 kV since buses 4, 5, and 7 are all 230 kV
+   - Baseline: transformer 3's `hv_bus` is set to 8 (diagram bus 9). Other cases: `hv_bus` is set to 4 or 6 (diagram buses 5 or 7).
+   - **Important**: Transformer 3's voltage rating (`vn_hv_kv`) remains 230 kV since buses 5, 7, and 9 are all 230 kV
    - Transformer 4 (internal to wind subsystem) and the line (Bus 9 → Bus 10) remain unchanged
 
 3. **`plot_comparison()`**: Creates visualization plots
@@ -48,10 +48,10 @@ In this analysis, we use `pp.runopp()` which solves the AC OPF problem.
 
 ## Network Structure
 
-### Baseline Configuration
+### Baseline Configuration (Wind@Bus9)
 - **Wind subsystem**: Consists of buses 9, 10, 11 (110 kV, 110 kV, 33 kV)
 - **Wind generator**: At bus 11 (33 kV)
-- **Connection to main grid**: Via Transformer 3 connecting Bus 4 (230 kV) → Bus 9 (110 kV)
+- **Connection to main grid**: Via Transformer 3 connecting Bus 9 (230 kV, pandapower index 8) → Bus 9 (110 kV) of the wind subsystem
 - **Internal wind subsystem**: 
   - Line: Bus 9 → Bus 10 (both 110 kV)
   - Transformer 4: Bus 10 (110 kV) → Bus 11 (33 kV)
@@ -60,17 +60,17 @@ In this analysis, we use `pp.runopp()` which solves the AC OPF problem.
 
 ### Modified Configurations
 - **Wind@Bus7**: Transformer 3 connects bus 7 (230 kV) → Bus 9 (110 kV)
-  - The entire wind subsystem (buses 9, 10, 11) is now connected to bus 7 instead of bus 4
+  - The entire wind subsystem (buses 9, 10, 11) is now connected to bus 7 instead of bus 9
 - **Wind@Bus5**: Transformer 3 connects bus 5 (230 kV) → Bus 9 (110 kV)
-  - The entire wind subsystem (buses 9, 10, 11) is now connected to bus 5 instead of bus 4
+  - The entire wind subsystem (buses 9, 10, 11) is now connected to bus 5 instead of bus 9
 
 ## Results Analysis
 
-### Baseline Case (Wind@Bus4)
-- **Total Cost**: $2,082.99
-- **Voltage Range**: 0.9830 - 1.0500 pu
-- **Max Line Loading**: 90.65%
-- **Note**: Wind subsystem connected to Bus 4 via Transformer 3
+### Baseline Case (Wind@Bus9)
+- **Total Cost**: (run script for current value)
+- **Voltage Range**: (run script for current value)
+- **Max Line Loading**: (run script for current value)
+- **Note**: Wind subsystem connected to Bus 9 (pandapower index 8) via Transformer 3
 
 ### Wind@Bus7 (100% Demand)
 - **Total Cost**: $2,136.47 (+2.57% vs baseline)
@@ -88,7 +88,7 @@ In this analysis, we use `pp.runopp()` which solves the AC OPF problem.
 - **Cost**: Increases dramatically (~141% increase) due to need for more expensive generation
 - **Voltages**: Minimum voltage drops (0.95-0.96 pu range)
 - **Line Loading**: Increases but still manageable
-- **Note**: 200% demand cases did not converge (system capacity exceeded)
+- **Note**: Wind@Bus5 at 150% demand may not converge (OPF not solvable); 200% demand typically does not converge for any location (system capacity exceeded)
 
 ## Key Insights
 

@@ -2,7 +2,7 @@
 Task 1: Economic Dispatch Analysis for IEEE 9-bus System with Wind Power Plant
 
 This script performs economic dispatch analysis by:
-1. Running baseline case (wind connected via transformer to bus 10)
+1. Running baseline case (wind connected via transformer to bus 9, pp index 8)
 2. Moving wind power plant to bus 7 (changing transformer connection)
 3. Moving wind power plant to bus 5 (changing transformer connection)
 4. For each location, testing with 50% and 100% increased demand
@@ -100,9 +100,9 @@ def change_wind_location(net, target_bus):
     
     Understanding:
     - The wind power plant subsystem consists of buses 9, 10, 11 (110 kV, 110 kV, 33 kV)
-    - Transformer 3 connects the main grid (230 kV) to the wind subsystem (Bus 9 at 110 kV)
-    - Currently: Transformer 3 connects Bus 4 (230 kV) -> Bus 9 (110 kV)
-    - To move wind subsystem: Change Transformer 3's hv_bus from 4 to target_bus (5 or 7)
+    - Transformer 3 connects the main grid (230 kV) to the wind subsystem (lv_bus 9 at 110 kV)
+    - Baseline: Transformer 3 hv_bus = 8 (diagram bus 9). Other cases: hv_bus = 4 or 6 (diagram buses 5 or 7).
+    - To move wind subsystem: Change Transformer 3's hv_bus to target_bus (pp index 4 = bus 5, pp index 6 = bus 7)
     - Transformer 4 (Bus 10 -> Bus 11) and the line (Bus 9 -> Bus 10) remain unchanged
       as they are internal to the wind subsystem
     
@@ -111,7 +111,8 @@ def change_wind_location(net, target_bus):
     net : pandapower network
         The power system network
     target_bus : int
-        Target bus number (5 or 7) in the main 230 kV grid to connect wind subsystem to
+        Pandapower (0-based) bus index in the main 230 kV grid.
+        Use 4 for diagram bus 5, 6 for diagram bus 7.
     """
     # Transformer 3 connects the wind subsystem (bus 9) to the main grid
     # Change its high-voltage bus to connect to different location in main grid
@@ -170,41 +171,47 @@ def plot_comparison(results_list, output_dir):
     # Col 1-2: Detailed metrics | Col 3: Summary metrics
     fig, axes = plt.subplots(2, 3, figsize=(18, 10))
     
+    # Diagram bus number = 1-based (as on single-line diagram); pandapower uses 0-based indices.
+    def pp_bus_to_diagram(pp_bus_index):
+        return pp_bus_index + 1
+    
     # ========================================================================
     # ROW 1: Voltage Metrics + Cost Summary
     # ========================================================================
     
-    # Plot 1: Voltage magnitudes comparison (Row 1, Col 1)
+    # Plot 1: Voltage magnitudes comparison (Row 1, Col 1) — x-axis: diagram bus number
     ax1 = axes[0, 0]
     for result in converged_results:
         label = f"{result['case_name']} ({result['demand_multiplier']*100:.0f}% demand)"
         marker = get_marker(result['case_name'], result['demand_multiplier'])
-        ax1.plot(result['voltages'].index, result['voltages'].values, 
+        bus_numbers = [pp_bus_to_diagram(i) for i in result['voltages'].index]
+        ax1.plot(bus_numbers, result['voltages'].values,
                 marker=marker, label=label, linewidth=2.0, markersize=5)
-    # Add voltage limit lines
-    ax1.axhline(y=1.1, color='red', linestyle='--', linewidth=1.0, alpha=0.7, label='Upper limit (1.1 pu)')
-    ax1.axhline(y=0.9, color='red', linestyle='--', linewidth=1.0, alpha=0.7, label='Lower limit (0.9 pu)')
-    ax1.set_xlabel('Bus Index', fontsize=12)
+    # Add voltage limit lines (match pandapower OPF constraints: ±5%)
+    ax1.axhline(y=1.05, color='red', linestyle='--', linewidth=1.0, alpha=0.7, label='Upper limit (1.05 pu)')
+    ax1.axhline(y=0.95, color='red', linestyle='--', linewidth=1.0, alpha=0.7, label='Lower limit (0.95 pu)')
+    ax1.set_xlabel('Bus number (diagram)', fontsize=12)
     ax1.set_ylabel('Voltage Magnitude (pu)', fontsize=12)
     ax1.set_title('Voltage Magnitude Comparison', fontsize=14, fontweight='bold')
     ax1.set_axisbelow(True)
     ax1.grid(True, alpha=0.3, linestyle=':', linewidth=0.5)
     ax1.legend(fontsize=8, loc='best')
-    ax1.set_ylim([0.85, 1.15])  # Extended range to show limits
+    ax1.set_ylim([0.90, 1.10])  # Extended range to show ±5% limits
     
-    # Plot 2: Voltage deviation from nominal (1.0 pu) (Row 1, Col 2)
+    # Plot 2: Voltage deviation from nominal (1.0 pu) (Row 1, Col 2) — x-axis: diagram bus number
     ax2 = axes[0, 1]
     for result in converged_results:
         voltage_deviation = (result['voltages'] - 1.0) * 100  # Convert to percentage
         label = f"{result['case_name']} ({result['demand_multiplier']*100:.0f}% demand)"
         marker = get_marker(result['case_name'], result['demand_multiplier'])
-        ax2.plot(voltage_deviation.index, voltage_deviation.values,
+        bus_numbers = [pp_bus_to_diagram(i) for i in voltage_deviation.index]
+        ax2.plot(bus_numbers, voltage_deviation.values,
                 marker=marker, label=label, linewidth=2.0, markersize=5)
-    # Add voltage limit lines (converted to percentage deviation)
-    ax2.axhline(y=10, color='red', linestyle='--', linewidth=1.0, alpha=0.7, label='Upper limit (+10%)')
-    ax2.axhline(y=-10, color='red', linestyle='--', linewidth=1.0, alpha=0.7, label='Lower limit (-10%)')
+    # Add voltage limit lines (converted to percentage deviation; match OPF ±5%)
+    ax2.axhline(y=5.0, color='red', linestyle='--', linewidth=1.0, alpha=0.7, label='Upper limit (+5%)')
+    ax2.axhline(y=-5.0, color='red', linestyle='--', linewidth=1.0, alpha=0.7, label='Lower limit (-5%)')
     ax2.axhline(y=0, color='k', linestyle='-', linewidth=1.0)
-    ax2.set_xlabel('Bus Index', fontsize=12)
+    ax2.set_xlabel('Bus number (diagram)', fontsize=12)
     ax2.set_ylabel('Voltage Deviation from 1.0 pu (%)', fontsize=12)
     ax2.set_title('Voltage Deviation Analysis', fontsize=14, fontweight='bold')
     ax2.set_axisbelow(True)
@@ -213,12 +220,12 @@ def plot_comparison(results_list, output_dir):
     
     # Plot 3: Total cost comparison (Row 1, Col 3)
     ax3 = axes[0, 2]
-    cases = [r['case_name'] for r in converged_results]
+    bar_labels = [f"{r['case_name']} ({r['demand_multiplier']*100:.0f}%)" for r in converged_results]
     costs = [r['total_cost'] for r in converged_results]
-    colors = plt.cm.viridis(np.linspace(0, 1, len(cases)))
-    bars = ax3.bar(range(len(cases)), costs, color=colors)
-    ax3.set_xticks(range(len(cases)))
-    ax3.set_xticklabels(cases, rotation=45, ha='right')
+    colors = plt.cm.viridis(np.linspace(0, 1, len(bar_labels)))
+    bars = ax3.bar(range(len(bar_labels)), costs, color=colors)
+    ax3.set_xticks(range(len(bar_labels)))
+    ax3.set_xticklabels(bar_labels, rotation=45, ha='right')
     ax3.set_ylabel('Total Cost ($)', fontsize=12)
     ax3.set_title('Total Cost Comparison', fontsize=14, fontweight='bold')
     ax3.set_axisbelow(True)
@@ -265,10 +272,10 @@ def plot_comparison(results_list, output_dir):
     # Plot 6: Total System Losses Comparison (Row 2, Col 3)
     ax6 = axes[1, 2]
     total_losses = [r['total_losses'] for r in converged_results]
-    colors_losses = plt.cm.plasma(np.linspace(0, 1, len(cases)))
-    bars_losses = ax6.bar(range(len(cases)), total_losses, color=colors_losses)
-    ax6.set_xticks(range(len(cases)))
-    ax6.set_xticklabels(cases, rotation=45, ha='right')
+    colors_losses = plt.cm.plasma(np.linspace(0, 1, len(bar_labels)))
+    bars_losses = ax6.bar(range(len(bar_labels)), total_losses, color=colors_losses)
+    ax6.set_xticks(range(len(bar_labels)))
+    ax6.set_xticklabels(bar_labels, rotation=45, ha='right')
     ax6.set_ylabel('Total System Losses [MW]', fontsize=12)
     ax6.set_title('Total Active Power Losses', fontsize=14, fontweight='bold')
     ax6.set_axisbelow(True)
@@ -336,35 +343,46 @@ def main():
     
     all_results = []
     
-    # Load baseline network
+    # Load baseline network and set wind connection to bus 9 (pp index 8)
     print("\n[1] Loading baseline network...")
     net_baseline = pp.from_excel(THIS_DIR / "ieee9-wind.xlsx")
-    print(f"  Baseline: Wind subsystem connected via transformer 3 to bus {net_baseline.trafo.loc[3, 'hv_bus']}")
+    # Verify bus voltage limits used by OPF (expected: min_vm_pu=0.95, max_vm_pu=1.05)
+    print("Bus voltage limits (OPF constraints):")
+    print(net_baseline.bus[['min_vm_pu', 'max_vm_pu']].drop_duplicates())
+    BASELINE_PP_BUS = 8  # diagram bus 9
+    net_baseline.trafo.loc[3, 'hv_bus'] = BASELINE_PP_BUS
+    print(f"  Baseline: Wind subsystem connected via transformer 3 to pp bus {BASELINE_PP_BUS} (diagram bus 9)")
     
-    # Run baseline case
-    print("\n[2] Running baseline case (original configuration)...")
-    baseline_result = run_opf_analysis(net_baseline, "Baseline", demand_multiplier=1.0)
-    all_results.append(baseline_result)
-    if baseline_result['converged']:
-        print(f"  ✓ Baseline OPF converged. Total cost: ${baseline_result['total_cost']:.2f}")
+    # Run baseline case at 100%, 150%, and 200% demand
+    print("\n[2] Running baseline case (Wind@Bus9)...")
+    for demand_mult in [1.0, 1.5, 2.0]:
+        baseline_result = run_opf_analysis(net_baseline, "Baseline", demand_multiplier=demand_mult)
+        all_results.append(baseline_result)
+        if baseline_result['converged']:
+            print(f"  ✓ Baseline with {demand_mult*100:.0f}% demand: Cost = ${baseline_result['total_cost']:.2f}")
     
     # Test different wind locations
-    wind_locations = [7, 5]  # Bus 7 and Bus 5
+    # Assignment uses diagram bus numbers (1-based); pandapower uses 0-based indices.
+    # Diagram bus 5 -> pp index 4; diagram bus 7 -> pp index 6.
+    wind_locations = [
+        (6, 7),   # (pp_bus_index, diagram_bus_number) for Wind@Bus7
+        (4, 5),   # (pp_bus_index, diagram_bus_number) for Wind@Bus5
+    ]
     
-    for wind_bus in wind_locations:
-        print(f"\n[3] Testing wind power plant at bus {wind_bus}...")
+    for pp_bus_idx, diagram_bus in wind_locations:
+        print(f"\n[3] Testing wind power plant at bus {diagram_bus} (pp index {pp_bus_idx})...")
         
         # Load fresh network for each location
         net = pp.from_excel(THIS_DIR / "ieee9-wind.xlsx")
         
-        # Change wind location
-        change_wind_location(net, wind_bus)
+        # Change wind location (pass pandapower bus index)
+        change_wind_location(net, pp_bus_idx)
         
         # Test with different demand levels
-        # Note: 200% demand (2.0 multiplier = 100% increase) typically does not converge,
-        # indicating system capacity limits are exceeded
+        # Note: Wind@Bus5 at 150% demand may not converge (OPF not solvable).
+        # 200% demand (2.0 multiplier) typically does not converge for any location.
         for demand_mult in [1.0, 1.5, 2.0]:  # Baseline, +50%, +100%
-            case_name = f"Wind@Bus{wind_bus}"
+            case_name = f"Wind@Bus{diagram_bus}"
             result = run_opf_analysis(net, case_name, demand_multiplier=demand_mult)
             all_results.append(result)
             
