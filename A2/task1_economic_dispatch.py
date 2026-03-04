@@ -332,6 +332,90 @@ def print_results_summary(results_list):
     print("="*80)
 
 
+def plot_report_task1(results_list, output_dir):
+    """
+    Report-optimized Task 1 figure: 1×3 subplots (voltage, loading, losses).
+    Designed for a 4-page A4 report — clean, minimal, all converged scenarios.
+    """
+    converged = [r for r in results_list if r.get('converged', False)]
+    if not converged:
+        print("No converged results for report figure")
+        return
+
+    styles = {
+        ('Baseline', 1.0):  {'color': '#1f77b4', 'marker': 'o', 'ls': '-',
+                             'lbl': 'Baseline (100%)'},
+        ('Wind@Bus7', 1.0): {'color': '#2ca02c', 'marker': 's', 'ls': '-',
+                             'lbl': 'Wind@Bus7 (100%)'},
+        ('Wind@Bus7', 1.5): {'color': '#2ca02c', 'marker': '^', 'ls': '--',
+                             'lbl': 'Wind@Bus7 (150%)'},
+        ('Wind@Bus5', 1.0): {'color': '#d62728', 'marker': 'D', 'ls': '-',
+                             'lbl': 'Wind@Bus5 (100%)'},
+        ('Wind@Bus5', 1.5): {'color': '#d62728', 'marker': 'v', 'ls': '--',
+                             'lbl': 'Wind@Bus5 (150%)'},
+        ('Baseline', 1.5):  {'color': '#1f77b4', 'marker': 'x', 'ls': '--',
+                             'lbl': 'Baseline (150%)'},
+    }
+
+    fig, axes = plt.subplots(1, 3, figsize=(15, 4.5))
+
+    for r in converged:
+        key = (r['case_name'], r['demand_multiplier'])
+        s = styles.get(key, {'color': 'gray', 'marker': 'x', 'ls': '-',
+                             'lbl': f"{key[0]} ({key[1]*100:.0f}%)"})
+        bus_x = [i + 1 for i in r['voltages'].index]
+        axes[0].plot(bus_x, r['voltages'].values,
+                     color=s['color'], marker=s['marker'], linestyle=s['ls'],
+                     linewidth=1.8, markersize=5, label=s['lbl'])
+        axes[1].plot(r['line_loading'].index, r['line_loading'].values,
+                     color=s['color'], marker=s['marker'], linestyle=s['ls'],
+                     linewidth=1.8, markersize=5, label=s['lbl'])
+        axes[2].plot(r['branch_losses'].index, r['branch_losses'].values,
+                     color=s['color'], marker=s['marker'], linestyle=s['ls'],
+                     linewidth=1.8, markersize=5, label=s['lbl'])
+
+    # (a) Voltage magnitudes
+    axes[0].axhline(y=1.05, color='darkred', linestyle='--', linewidth=1.5,
+                    alpha=0.7)
+    axes[0].axhline(y=0.95, color='darkred', linestyle='--', linewidth=1.5,
+                    alpha=0.7)
+    axes[0].set_xlabel('Bus Number', fontsize=11)
+    axes[0].set_ylabel('Voltage Magnitude (pu)', fontsize=11)
+    axes[0].set_title('(a) Bus Voltage Magnitudes', fontsize=12,
+                      fontweight='bold')
+    axes[0].set_ylim([0.90, 1.10])
+    axes[0].grid(True, alpha=0.3, linestyle=':', linewidth=0.5)
+    axes[0].legend(fontsize=7.5, loc='lower left', framealpha=0.9)
+
+    # (b) Branch loading
+    axes[1].axhline(y=100, color='darkred', linestyle='--', linewidth=1.5,
+                    alpha=0.7)
+    axes[1].set_xlabel('Line Index', fontsize=11)
+    axes[1].set_ylabel('Loading (%)', fontsize=11)
+    axes[1].set_title('(b) Branch Loading', fontsize=12, fontweight='bold')
+    axes[1].grid(True, alpha=0.3, linestyle=':', linewidth=0.5)
+    axes[1].legend(fontsize=7.5, loc='upper left', framealpha=0.9)
+
+    # (c) Branch losses
+    axes[2].set_xlabel('Line Index', fontsize=11)
+    axes[2].set_ylabel('Active Power Loss (MW)', fontsize=11)
+    axes[2].set_title('(c) Branch Active Power Losses', fontsize=12,
+                      fontweight='bold')
+    axes[2].grid(True, alpha=0.3, linestyle=':', linewidth=0.5)
+    axes[2].legend(fontsize=7.5, loc='upper right', framealpha=0.9)
+
+    fig.text(0.5, -0.01,
+             'Solid: 100% demand  |  Dashed: 150% demand  |'
+             '  Red dashed: voltage limits (\u00b15%) / thermal limit (100%)',
+             ha='center', fontsize=8.5, style='italic')
+
+    plt.tight_layout()
+    out = output_dir / 'report_task1_figure.png'
+    fig.savefig(out, dpi=300, bbox_inches='tight')
+    plt.close()
+    print(f"\n\u2713 Report Task 1 figure saved: {out}")
+
+
 # ============================================================================
 # STEP 2: Main analysis
 # ============================================================================
@@ -395,6 +479,10 @@ def main():
     # Create comparison plots
     print("\n[4] Generating comparison plots...")
     plot_comparison(all_results, THIS_DIR)
+
+    # Create report-optimized figure (1×3: voltage, loading, losses)
+    print("\n[4b] Generating report figure...")
+    plot_report_task1(all_results, THIS_DIR)
     
     print("\n" + "="*80)
     print("Analysis complete!")

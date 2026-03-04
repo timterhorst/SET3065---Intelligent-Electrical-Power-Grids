@@ -61,7 +61,7 @@ For PF 0.95: \(Q = \pm P \tan(\arccos(0.95))\).
 5. **`run_ppf_analysis()`**  
    - Loads the base network and load parameters (means, PQ ratio).  
    - Generates one set of wind speeds (Weibull) and corresponding wind powers for all scenarios.  
-   - For each scenario: re-loads the network, sets the wind connection bus (transformer 3’s LV bus), then for each of the N samples: draws random loads, sets wind P and Q, runs PF + OPF; on convergence, appends voltages, line loadings, and line losses.  
+   - For each scenario: re-loads the network, sets the wind connection bus (transformer 3’s HV bus), then for each of the N samples: draws random loads, sets wind P and Q, runs PF + OPF; on convergence, appends voltages, line loadings, and line losses.  
    - Returns the results dictionary.
 
 6. **`plot_voltage_variability(results)`**  

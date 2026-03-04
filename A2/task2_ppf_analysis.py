@@ -451,19 +451,18 @@ SCENARIOS_OVERLAY_CONFIG = [
 def plot_voltage_comparison_comprehensive(results):
     """
     Single plot showing selected scenarios overlaid.
-    Reduced to 6 key scenarios for clarity.
-    Each scenario: median line + 5-95% confidence band.
+    Reduced to 6 key scenarios; improved clarity via lighter bands and thicker median lines.
     """
     scenarios_config = [
-        {'name': 'Baseline_UnitPF', 'label': 'Baseline Unity', 'color': '#1f77b4', 'linestyle': '-', 'linewidth': 2.5},
-        {'name': 'Wind@Bus7_UnitPF', 'label': 'Bus7 Unity', 'color': '#2ca02c', 'linestyle': '-', 'linewidth': 2.5},
-        {'name': 'Wind@Bus5_UnitPF', 'label': 'Bus5 Unity', 'color': '#ff7f0e', 'linestyle': '-', 'linewidth': 2.5},
-        {'name': 'Wind@Bus7_PF095_OE', 'label': 'Bus7 PF0.95 OE', 'color': '#2ca02c', 'linestyle': '--', 'linewidth': 2.5},
-        {'name': 'Wind@Bus7_PF095_UE', 'label': 'Bus7 PF0.95 UE', 'color': '#2ca02c', 'linestyle': ':', 'linewidth': 2},
-        {'name': 'Baseline_PF095_OE', 'label': 'Baseline PF0.95 OE', 'color': '#1f77b4', 'linestyle': '--', 'linewidth': 2},
+        {'name': 'Baseline_UnitPF', 'label': 'Baseline Unity', 'color': '#4477AA', 'linestyle': '-', 'linewidth': 3.0, 'band_alpha': 0.12},
+        {'name': 'Wind@Bus7_UnitPF', 'label': 'Bus7 Unity', 'color': '#228833', 'linestyle': '-', 'linewidth': 3.0, 'band_alpha': 0.12},
+        {'name': 'Wind@Bus5_UnitPF', 'label': 'Bus5 Unity', 'color': '#EE6677', 'linestyle': '-', 'linewidth': 3.0, 'band_alpha': 0.12},
+        {'name': 'Wind@Bus7_PF095_OE', 'label': 'Bus7 PF0.95 OE', 'color': '#228833', 'linestyle': '--', 'linewidth': 2.5, 'band_alpha': 0.10},
+        {'name': 'Wind@Bus7_PF095_UE', 'label': 'Bus7 PF0.95 UE', 'color': '#44AA99', 'linestyle': ':', 'linewidth': 2.0, 'band_alpha': 0.08},
+        {'name': 'Baseline_PF095_OE', 'label': 'Baseline PF0.95 OE', 'color': '#4477AA', 'linestyle': '--', 'linewidth': 2.0, 'band_alpha': 0.08},
     ]
 
-    fig, ax = plt.subplots(1, 1, figsize=(14, 7))
+    fig, ax = plt.subplots(1, 1, figsize=(15, 7))
     n_buses = 12
 
     for scenario in scenarios_config:
@@ -481,45 +480,48 @@ def plot_voltage_comparison_comprehensive(results):
 
         total = results[scenario_name]['total']
         conv_rate = 100 * results[scenario_name]['converged'] / total
-        alpha = 0.9 if conv_rate >= 70 else 0.5
-        band_alpha = 0.2 if conv_rate >= 70 else 0.1
+        line_alpha = 0.95 if conv_rate >= 70 else 0.4
+        band_alpha = scenario['band_alpha'] if conv_rate >= 70 else scenario['band_alpha'] * 0.5
 
         ax.fill_between(bus_indices, p5, p95,
-                        alpha=band_alpha, color=scenario['color'], linewidth=0)
+                        alpha=band_alpha, color=scenario['color'], linewidth=0,
+                        edgecolor='none')
 
-        label_with_conv = f"{scenario['label']} ({conv_rate:.0f}%)"
+        label_text = f"{scenario['label']} ({conv_rate:.0f}%)"
         marker = 'o' if conv_rate >= 90 else 'x'
         ax.plot(bus_indices, median,
                 color=scenario['color'],
                 linestyle=scenario['linestyle'],
                 linewidth=scenario['linewidth'],
-                label=label_with_conv,
+                label=label_text,
                 marker=marker,
-                markersize=4,
+                markersize=5,
                 markevery=2,
-                alpha=alpha)
+                alpha=line_alpha,
+                zorder=10)
 
-    ax.axhline(y=1.05, color='red', linestyle='--', linewidth=2, alpha=0.7,
-               label='Voltage Limits (±5%)', zorder=0)
-    ax.axhline(y=0.95, color='red', linestyle='--', linewidth=2, alpha=0.7, zorder=0)
+    ax.axhline(y=1.05, color='darkred', linestyle='--', linewidth=2.5, alpha=0.8,
+               label='Voltage Limits (±5%)', zorder=5)
+    ax.axhline(y=0.95, color='darkred', linestyle='--', linewidth=2.5, alpha=0.8, zorder=5)
 
-    ax.set_xlabel('Bus Number', fontsize=12, fontweight='bold')
-    ax.set_ylabel('Voltage (pu)', fontsize=12, fontweight='bold')
+    ax.set_xlabel('Bus Number', fontsize=13, fontweight='bold')
+    ax.set_ylabel('Voltage (pu)', fontsize=13, fontweight='bold')
     ax.set_title('Voltage Variability: Key Scenarios Comparison (Median + 5-95% Band)',
-                 fontsize=14, fontweight='bold', pad=15)
+                 fontsize=15, fontweight='bold', pad=15)
     ax.set_ylim([0.94, 1.06])
     ax.set_xlim([0.5, n_buses + 0.5])
-    ax.grid(True, alpha=0.3, linestyle=':', linewidth=0.5)
+    ax.grid(True, alpha=0.25, linestyle=':', linewidth=0.5, zorder=0)
 
-    legend = ax.legend(loc='lower left', fontsize=10, ncol=2, framealpha=0.95,
-                      title='Scenario (convergence rate)')
+    legend = ax.legend(loc='lower left', fontsize=10, ncol=2, framealpha=0.98,
+                      title='Scenario (convergence rate)', edgecolor='gray')
     legend.get_title().set_fontweight('bold')
+    legend.get_title().set_fontsize(10)
 
     ax.text(0.99, 0.97,
-            'Solid: Unity PF\nDashed: Overexcited\nDotted: Underexcited\nFaded: <70% conv.',
+            'Line style:\nSolid = Unity PF\nDashed = Overexcited\nDotted = Underexcited\n\nFaded = <70% conv.',
             transform=ax.transAxes, ha='right', va='top',
-            bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.8),
-            fontsize=9)
+            bbox=dict(boxstyle='round,pad=0.5', facecolor='wheat', alpha=0.9, edgecolor='gray'),
+            fontsize=9, family='monospace')
 
     plt.tight_layout()
     out_path = THIS_DIR / 'task2_voltage_comparison_reduced.png'
@@ -530,18 +532,18 @@ def plot_voltage_comparison_comprehensive(results):
 
 def plot_loading_comparison_comprehensive(results):
     """
-    Single plot for line loading - 6 key scenarios.
+    Single plot for line loading - 6 key scenarios; improved clarity.
     """
     scenarios_config = [
-        {'name': 'Baseline_UnitPF', 'label': 'Baseline Unity', 'color': '#1f77b4', 'linestyle': '-', 'linewidth': 2.5},
-        {'name': 'Wind@Bus7_UnitPF', 'label': 'Bus7 Unity', 'color': '#2ca02c', 'linestyle': '-', 'linewidth': 2.5},
-        {'name': 'Wind@Bus5_UnitPF', 'label': 'Bus5 Unity', 'color': '#ff7f0e', 'linestyle': '-', 'linewidth': 2.5},
-        {'name': 'Wind@Bus7_PF095_OE', 'label': 'Bus7 PF0.95 OE', 'color': '#2ca02c', 'linestyle': '--', 'linewidth': 2.5},
-        {'name': 'Wind@Bus7_PF095_UE', 'label': 'Bus7 PF0.95 UE', 'color': '#2ca02c', 'linestyle': ':', 'linewidth': 2},
-        {'name': 'Baseline_PF095_OE', 'label': 'Baseline PF0.95 OE', 'color': '#1f77b4', 'linestyle': '--', 'linewidth': 2},
+        {'name': 'Baseline_UnitPF', 'label': 'Baseline Unity', 'color': '#4477AA', 'linestyle': '-', 'linewidth': 3.0, 'band_alpha': 0.12},
+        {'name': 'Wind@Bus7_UnitPF', 'label': 'Bus7 Unity', 'color': '#228833', 'linestyle': '-', 'linewidth': 3.0, 'band_alpha': 0.12},
+        {'name': 'Wind@Bus5_UnitPF', 'label': 'Bus5 Unity', 'color': '#EE6677', 'linestyle': '-', 'linewidth': 3.0, 'band_alpha': 0.12},
+        {'name': 'Wind@Bus7_PF095_OE', 'label': 'Bus7 PF0.95 OE', 'color': '#228833', 'linestyle': '--', 'linewidth': 2.5, 'band_alpha': 0.10},
+        {'name': 'Wind@Bus7_PF095_UE', 'label': 'Bus7 PF0.95 UE', 'color': '#44AA99', 'linestyle': ':', 'linewidth': 2.0, 'band_alpha': 0.08},
+        {'name': 'Baseline_PF095_OE', 'label': 'Baseline PF0.95 OE', 'color': '#4477AA', 'linestyle': '--', 'linewidth': 2.0, 'band_alpha': 0.08},
     ]
 
-    fig, ax = plt.subplots(1, 1, figsize=(14, 7))
+    fig, ax = plt.subplots(1, 1, figsize=(15, 7))
     n_lines = 7
 
     for scenario in scenarios_config:
@@ -559,47 +561,51 @@ def plot_loading_comparison_comprehensive(results):
 
         total = results[scenario_name]['total']
         conv_rate = 100 * results[scenario_name]['converged'] / total
-        alpha = 0.9 if conv_rate >= 70 else 0.5
-        band_alpha = 0.2 if conv_rate >= 70 else 0.1
+        line_alpha = 0.95 if conv_rate >= 70 else 0.4
+        band_alpha = scenario['band_alpha'] if conv_rate >= 70 else scenario['band_alpha'] * 0.5
 
         ax.fill_between(line_indices, p5, p95,
-                        alpha=band_alpha, color=scenario['color'], linewidth=0)
+                        alpha=band_alpha, color=scenario['color'], linewidth=0,
+                        edgecolor='none')
 
-        label_with_conv = f"{scenario['label']} ({conv_rate:.0f}%)"
+        label_text = f"{scenario['label']} ({conv_rate:.0f}%)"
         marker = 'o' if conv_rate >= 90 else 'x'
         ax.plot(line_indices, median,
                 color=scenario['color'],
                 linestyle=scenario['linestyle'],
                 linewidth=scenario['linewidth'],
-                label=label_with_conv,
+                label=label_text,
                 marker=marker,
-                markersize=4,
-                alpha=alpha)
+                markersize=5,
+                alpha=line_alpha,
+                zorder=10)
 
-    ax.axhline(y=100, color='red', linestyle='--', linewidth=2, alpha=0.7,
-               label='Thermal Limit (100%)', zorder=0)
+    ax.axhline(y=100, color='darkred', linestyle='--', linewidth=2.5, alpha=0.8,
+               label='Thermal Limit (100%)', zorder=5)
     if n_lines > 6:
-        ax.axvline(x=6, color='purple', linestyle=':', linewidth=2, alpha=0.5, zorder=0)
-        ax.text(6, 105, 'Line 6\n(wind)', ha='center', fontsize=10, color='purple',
-                fontweight='bold', bbox=dict(boxstyle='round', facecolor='lavender', alpha=0.7))
+        ax.axvline(x=6, color='purple', linestyle=':', linewidth=2.5, alpha=0.6, zorder=3)
+        ax.text(6, 107, 'Line 6\n(wind)', ha='center', fontsize=10, color='purple',
+                fontweight='bold',
+                bbox=dict(boxstyle='round,pad=0.4', facecolor='lavender', alpha=0.85, edgecolor='purple', linewidth=1.5))
 
-    ax.set_xlabel('Line Index', fontsize=12, fontweight='bold')
-    ax.set_ylabel('Loading (%)', fontsize=12, fontweight='bold')
+    ax.set_xlabel('Line Index', fontsize=13, fontweight='bold')
+    ax.set_ylabel('Loading (%)', fontsize=13, fontweight='bold')
     ax.set_title('Line Loading Variability: Key Scenarios Comparison (Median + 5-95% Band)',
-                 fontsize=14, fontweight='bold', pad=15)
+                 fontsize=15, fontweight='bold', pad=15)
     ax.set_ylim([0, 110])
     ax.set_xlim([-0.5, n_lines - 0.5])
-    ax.grid(True, alpha=0.3, linestyle=':', linewidth=0.5)
+    ax.grid(True, alpha=0.25, linestyle=':', linewidth=0.5, zorder=0)
 
-    legend = ax.legend(loc='upper left', fontsize=10, ncol=2, framealpha=0.95,
-                      title='Scenario (convergence rate)')
+    legend = ax.legend(loc='upper left', fontsize=10, ncol=2, framealpha=0.98,
+                      title='Scenario (convergence rate)', edgecolor='gray')
     legend.get_title().set_fontweight('bold')
+    legend.get_title().set_fontsize(10)
 
     ax.text(0.99, 0.97,
-            'Solid: Unity PF\nDashed: Overexcited\nDotted: Underexcited\nFaded: <70% conv.',
+            'Line style:\nSolid = Unity PF\nDashed = Overexcited\nDotted = Underexcited\n\nFaded = <70% conv.',
             transform=ax.transAxes, ha='right', va='top',
-            bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.8),
-            fontsize=9)
+            bbox=dict(boxstyle='round,pad=0.5', facecolor='wheat', alpha=0.9, edgecolor='gray'),
+            fontsize=9, family='monospace')
 
     plt.tight_layout()
     out_path = THIS_DIR / 'task2_loading_comparison_reduced.png'
@@ -610,18 +616,18 @@ def plot_loading_comparison_comprehensive(results):
 
 def plot_loss_comparison_comprehensive(results):
     """
-    Single plot for power losses - 6 key scenarios.
+    Single plot for power losses - 6 key scenarios; improved clarity.
     """
     scenarios_config = [
-        {'name': 'Baseline_UnitPF', 'label': 'Baseline Unity', 'color': '#1f77b4', 'linestyle': '-', 'linewidth': 2.5},
-        {'name': 'Wind@Bus7_UnitPF', 'label': 'Bus7 Unity', 'color': '#2ca02c', 'linestyle': '-', 'linewidth': 2.5},
-        {'name': 'Wind@Bus5_UnitPF', 'label': 'Bus5 Unity', 'color': '#ff7f0e', 'linestyle': '-', 'linewidth': 2.5},
-        {'name': 'Wind@Bus7_PF095_OE', 'label': 'Bus7 PF0.95 OE', 'color': '#2ca02c', 'linestyle': '--', 'linewidth': 2.5},
-        {'name': 'Wind@Bus7_PF095_UE', 'label': 'Bus7 PF0.95 UE', 'color': '#2ca02c', 'linestyle': ':', 'linewidth': 2},
-        {'name': 'Baseline_PF095_OE', 'label': 'Baseline PF0.95 OE', 'color': '#1f77b4', 'linestyle': '--', 'linewidth': 2},
+        {'name': 'Baseline_UnitPF', 'label': 'Baseline Unity', 'color': '#4477AA', 'linestyle': '-', 'linewidth': 3.0, 'band_alpha': 0.12},
+        {'name': 'Wind@Bus7_UnitPF', 'label': 'Bus7 Unity', 'color': '#228833', 'linestyle': '-', 'linewidth': 3.0, 'band_alpha': 0.12},
+        {'name': 'Wind@Bus5_UnitPF', 'label': 'Bus5 Unity', 'color': '#EE6677', 'linestyle': '-', 'linewidth': 3.0, 'band_alpha': 0.12},
+        {'name': 'Wind@Bus7_PF095_OE', 'label': 'Bus7 PF0.95 OE', 'color': '#228833', 'linestyle': '--', 'linewidth': 2.5, 'band_alpha': 0.10},
+        {'name': 'Wind@Bus7_PF095_UE', 'label': 'Bus7 PF0.95 UE', 'color': '#44AA99', 'linestyle': ':', 'linewidth': 2.0, 'band_alpha': 0.08},
+        {'name': 'Baseline_PF095_OE', 'label': 'Baseline PF0.95 OE', 'color': '#4477AA', 'linestyle': '--', 'linewidth': 2.0, 'band_alpha': 0.08},
     ]
 
-    fig, ax = plt.subplots(1, 1, figsize=(14, 7))
+    fig, ax = plt.subplots(1, 1, figsize=(15, 7))
     n_lines = 7
     y_max = 5.0
     for scenario in scenarios_config:
@@ -646,40 +652,43 @@ def plot_loss_comparison_comprehensive(results):
 
         total = results[scenario_name]['total']
         conv_rate = 100 * results[scenario_name]['converged'] / total
-        alpha = 0.9 if conv_rate >= 70 else 0.5
-        band_alpha = 0.2 if conv_rate >= 70 else 0.1
+        line_alpha = 0.95 if conv_rate >= 70 else 0.4
+        band_alpha = scenario['band_alpha'] if conv_rate >= 70 else scenario['band_alpha'] * 0.5
 
         ax.fill_between(line_indices, p5, p95,
-                        alpha=band_alpha, color=scenario['color'], linewidth=0)
+                        alpha=band_alpha, color=scenario['color'], linewidth=0,
+                        edgecolor='none')
 
-        label_with_conv = f"{scenario['label']} ({conv_rate:.0f}%)"
+        label_text = f"{scenario['label']} ({conv_rate:.0f}%)"
         marker = 'o' if conv_rate >= 90 else 'x'
         ax.plot(line_indices, median,
                 color=scenario['color'],
                 linestyle=scenario['linestyle'],
                 linewidth=scenario['linewidth'],
-                label=label_with_conv,
+                label=label_text,
                 marker=marker,
-                markersize=4,
-                alpha=alpha)
+                markersize=5,
+                alpha=line_alpha,
+                zorder=10)
 
-    ax.set_xlabel('Line Index', fontsize=12, fontweight='bold')
-    ax.set_ylabel('Active Power Loss (MW)', fontsize=12, fontweight='bold')
+    ax.set_xlabel('Line Index', fontsize=13, fontweight='bold')
+    ax.set_ylabel('Active Power Loss (MW)', fontsize=13, fontweight='bold')
     ax.set_title('Power Loss Variability: Key Scenarios Comparison (Median + 5-95% Band)',
-                 fontsize=14, fontweight='bold', pad=15)
+                 fontsize=15, fontweight='bold', pad=15)
     ax.set_ylim([0, y_max])
     ax.set_xlim([-0.5, n_lines - 0.5])
-    ax.grid(True, alpha=0.3, linestyle=':', linewidth=0.5)
+    ax.grid(True, alpha=0.25, linestyle=':', linewidth=0.5, zorder=0)
 
-    legend = ax.legend(loc='upper left', fontsize=10, ncol=2, framealpha=0.95,
-                      title='Scenario (convergence rate)')
+    legend = ax.legend(loc='upper left', fontsize=10, ncol=2, framealpha=0.98,
+                      title='Scenario (convergence rate)', edgecolor='gray')
     legend.get_title().set_fontweight('bold')
+    legend.get_title().set_fontsize(10)
 
     ax.text(0.99, 0.97,
-            'Solid: Unity PF\nDashed: Overexcited\nDotted: Underexcited\nFaded: <70% conv.',
+            'Line style:\nSolid = Unity PF\nDashed = Overexcited\nDotted = Underexcited\n\nFaded = <70% conv.',
             transform=ax.transAxes, ha='right', va='top',
-            bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.8),
-            fontsize=9)
+            bbox=dict(boxstyle='round,pad=0.5', facecolor='wheat', alpha=0.9, edgecolor='gray'),
+            fontsize=9, family='monospace')
 
     plt.tight_layout()
     out_path = THIS_DIR / 'task2_loss_comparison_reduced.png'
@@ -1290,6 +1299,160 @@ def plot_loss_reactive_comparison(results):
     print(f"✓ Saved: {out_path}")
 
 
+# ============================================================================
+# REPORT-OPTIMIZED FIGURES (2-panel: location effect + reactive power effect)
+# ============================================================================
+
+_LOCATION_SCENARIOS = [
+    {'name': 'Baseline_UnitPF', 'label': 'Baseline (Bus 9)', 'color': '#1f77b4'},
+    {'name': 'Wind@Bus7_UnitPF', 'label': 'Wind @ Bus 7', 'color': '#2ca02c'},
+    {'name': 'Wind@Bus5_UnitPF', 'label': 'Wind @ Bus 5', 'color': '#d62728'},
+]
+
+_REACTIVE_SCENARIOS = [
+    {'name': 'Wind@Bus7_UnitPF', 'label': 'Unity PF', 'color': '#1f77b4'},
+    {'name': 'Wind@Bus7_PF095_OE', 'label': 'PF 0.95 OE', 'color': '#2ca02c'},
+    {'name': 'Wind@Bus7_PF095_UE', 'label': 'PF 0.95 UE', 'color': '#ff7f0e'},
+]
+
+
+def _report_panel(ax, scenario_list, results, metric, ylabel,
+                  hlimits=None, ylim=None, legend_loc='best'):
+    """Plot one panel of a 2-panel report figure (median + 5-95% band)."""
+    n_elem = None
+    for sc in scenario_list:
+        name = sc['name']
+        if name not in results or results[name]['converged'] == 0:
+            continue
+        data = results[name][metric]
+        n_elem = data.shape[1]
+        x = np.arange(n_elem) + (1 if metric == 'voltages' else 0)
+
+        med = np.percentile(data, 50, axis=0)
+        p5 = np.percentile(data, 5, axis=0)
+        p95 = np.percentile(data, 95, axis=0)
+
+        conv = 100 * results[name]['converged'] / results[name]['total']
+        reliable = conv >= 70
+        label = f"{sc['label']} ({conv:.0f}%)" + ('' if reliable else ' *')
+
+        ax.fill_between(x, p5, p95,
+                        alpha=0.20 if reliable else 0.08,
+                        color=sc['color'])
+        ax.plot(x, med, color=sc['color'], linewidth=2,
+                marker='o', markersize=5,
+                label=label, alpha=0.9 if reliable else 0.45)
+
+    if hlimits:
+        for yv in hlimits:
+            ax.axhline(y=yv, color='darkred', linestyle='--',
+                       linewidth=1.5, alpha=0.7)
+    if ylim:
+        ax.set_ylim(ylim)
+    if n_elem is not None:
+        if metric == 'voltages':
+            ax.set_xlim([0.5, n_elem + 0.5])
+        else:
+            ax.set_xlim([-0.5, n_elem - 0.5])
+    ax.set_xlabel('Bus Number' if metric == 'voltages' else 'Line Index',
+                  fontsize=11)
+    ax.set_ylabel(ylabel, fontsize=11)
+    ax.grid(True, alpha=0.3, linestyle=':', linewidth=0.5)
+    ax.legend(fontsize=9, loc=legend_loc, framealpha=0.95)
+
+
+def plot_report_voltage(results):
+    """Report figure: voltage variability (location + reactive power panels)."""
+    fig, (ax_a, ax_b) = plt.subplots(1, 2, figsize=(14, 5))
+
+    _report_panel(ax_a, _LOCATION_SCENARIOS, results, 'voltages',
+                  'Voltage (pu)', hlimits=[0.95, 1.05],
+                  ylim=[0.93, 1.07], legend_loc='lower left')
+    ax_a.set_title('(a) Wind Plant Location Effect\n(Unity Power Factor)',
+                   fontsize=11, fontweight='bold')
+
+    _report_panel(ax_b, _REACTIVE_SCENARIOS, results, 'voltages',
+                  'Voltage (pu)', hlimits=[0.95, 1.05],
+                  ylim=[0.93, 1.07], legend_loc='lower left')
+    ax_b.set_title('(b) Reactive Power Control Effect\n(Wind @ Bus 7)',
+                   fontsize=11, fontweight='bold')
+
+    fig.text(0.5, -0.01,
+             'Shaded: 5\u201395th percentile  |  Lines: median  |'
+             '  Red dashed: \u00b15% voltage limits  |  * <70% convergence',
+             ha='center', fontsize=8.5, style='italic')
+
+    plt.tight_layout()
+    out = THIS_DIR / 'report_task2_voltage.png'
+    plt.savefig(out, dpi=300, bbox_inches='tight')
+    plt.close()
+    print(f"\u2713 Report figure: {out}")
+
+
+def plot_report_loading(results):
+    """Report figure: loading variability (location + reactive power panels)."""
+    fig, (ax_a, ax_b) = plt.subplots(1, 2, figsize=(14, 5))
+
+    _report_panel(ax_a, _LOCATION_SCENARIOS, results, 'loadings',
+                  'Loading (%)', hlimits=[100], ylim=[0, 110],
+                  legend_loc='upper left')
+    ax_a.set_title('(a) Wind Plant Location Effect\n(Unity Power Factor)',
+                   fontsize=11, fontweight='bold')
+
+    _report_panel(ax_b, _REACTIVE_SCENARIOS, results, 'loadings',
+                  'Loading (%)', hlimits=[100], ylim=[0, 110],
+                  legend_loc='upper left')
+    ax_b.set_title('(b) Reactive Power Control Effect\n(Wind @ Bus 7)',
+                   fontsize=11, fontweight='bold')
+
+    fig.text(0.5, -0.01,
+             'Shaded: 5\u201395th percentile  |  Lines: median  |'
+             '  Red dashed: thermal limit (100%)  |  * <70% convergence',
+             ha='center', fontsize=8.5, style='italic')
+
+    plt.tight_layout()
+    out = THIS_DIR / 'report_task2_loading.png'
+    plt.savefig(out, dpi=300, bbox_inches='tight')
+    plt.close()
+    print(f"\u2713 Report figure: {out}")
+
+
+def plot_report_losses(results):
+    """Report figure: loss variability (location + reactive power panels)."""
+    y_max = 1.0
+    for sc_list in [_LOCATION_SCENARIOS, _REACTIVE_SCENARIOS]:
+        for sc in sc_list:
+            name = sc['name']
+            if name in results and results[name]['converged'] > 0:
+                p95 = np.percentile(results[name]['losses'], 95, axis=0)
+                y_max = max(y_max, np.nanmax(p95) * 1.15)
+
+    fig, (ax_a, ax_b) = plt.subplots(1, 2, figsize=(14, 5))
+
+    _report_panel(ax_a, _LOCATION_SCENARIOS, results, 'losses',
+                  'Active Power Loss (MW)', ylim=[0, y_max],
+                  legend_loc='upper right')
+    ax_a.set_title('(a) Wind Plant Location Effect\n(Unity Power Factor)',
+                   fontsize=11, fontweight='bold')
+
+    _report_panel(ax_b, _REACTIVE_SCENARIOS, results, 'losses',
+                  'Active Power Loss (MW)', ylim=[0, y_max],
+                  legend_loc='upper right')
+    ax_b.set_title('(b) Reactive Power Control Effect\n(Wind @ Bus 7)',
+                   fontsize=11, fontweight='bold')
+
+    fig.text(0.5, -0.01,
+             'Shaded: 5\u201395th percentile  |  Lines: median  |'
+             '  * <70% convergence',
+             ha='center', fontsize=8.5, style='italic')
+
+    plt.tight_layout()
+    out = THIS_DIR / 'report_task2_losses.png'
+    plt.savefig(out, dpi=300, bbox_inches='tight')
+    plt.close()
+    print(f"\u2713 Report figure: {out}")
+
+
 def generate_summary_table(results):
     """Generate enhanced comparison table with variability metrics for all scenarios."""
     print("\n" + "=" * 100)
@@ -1359,6 +1522,12 @@ if __name__ == "__main__":
     # Generate distribution summary
     print("\nGenerating distribution summary...")
     plot_total_loss_boxplots(results)
+
+    # Generate report-optimized figures (2-panel: location + reactive power)
+    print("\nGenerating report figures...")
+    plot_report_voltage(results)
+    plot_report_loading(results)
+    plot_report_losses(results)
 
     # Generate summary table
     generate_summary_table(results)
