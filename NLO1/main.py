@@ -1,6 +1,7 @@
 """Logistic regression with Adam for the Secondary Mushroom dataset (NLO1)."""
 
 import numpy as np
+import pandas as pd
 
 
 def load_data(path, seed):
@@ -27,92 +28,43 @@ def load_data(path, seed):
     y : ndarray, shape (m,)
         Float labels in {0, 1} (ndim == 1).
     """
-    # Prefer a light dependency footprint: parse with the csv module via numpy/pandas.
-    try:
-        import pandas as pd
+    data = pd.read_csv(path, sep=";")
+    class_col = data.columns[0]
+    columns = []
 
-        df = pd.read_csv(path, sep=";")
-        col_names = list(df.columns)
-        raw = df.to_numpy()
-    except Exception:
-        # Fallback without pandas: first row is header.
-        data = np.genfromtxt(path, delimiter=";", dtype=str, encoding="utf-8")
-        if data.ndim != 2:
-            raise ValueError("CSV must be two-dimensional after loading")
-        col_names = [c.strip() for c in data[0].tolist()]
-        raw = data[1:]
-
-    m = raw.shape[0]
-    class_col = raw[:, 0].astype(str)
-    y = (np.char.lower(class_col) == "poisonous").astype(np.float64)
-
-    feature_blocks = []
-    for j, name in enumerate(col_names[1:], start=1):
-        col = raw[:, j]
-        numeric = False
-        known_numeric = name in ("cap-diameter", "stem-height", "stem-width")
-        if known_numeric:
-            numeric = True
-            values = col.astype(np.float64)
+    for c in data.columns[1:]:
+        column = data[c]
+        if pd.api.types.is_numeric_dtype(column):
+            columns.append(column.to_numpy(dtype=float))
         else:
-            try:
-                values = np.asarray(col, dtype=np.float64)
-                if not np.isfinite(values).all():
-                    raise ValueError("non-finite numeric parse")
-                numeric = True
-            except (ValueError, TypeError):
-                numeric = False
+            values = column.astype(str).to_numpy()
+            unique_values = sorted(set(values))
+            for v in unique_values[1:]:
+                columns.append((values == v).astype(float))
 
-        if numeric:
-            feature_blocks.append(values.reshape(m, 1))
-        else:
-            levels = sorted({str(v) for v in col})
-            # Drop the first alphabetical level (reference category).
-            for level in levels[1:]:
-                feature_blocks.append((col.astype(str) == level).astype(np.float64).reshape(m, 1))
-
-    if feature_blocks:
-        X = np.hstack(feature_blocks).astype(np.float64)
-    else:
-        X = np.zeros((m, 0), dtype=np.float64)
-
-    if X.ndim != 2:
-        X = np.atleast_2d(X)
-    y = np.asarray(y, dtype=np.float64).reshape(-1)
-    if y.ndim != 1:
-        y = y.ravel()
+    m = data.shape[0]
+    X = np.column_stack(columns).astype(float)
+    y = (data[class_col].astype(str).str.strip() == "poisonous").to_numpy(dtype=float)
 
     rng = np.random.default_rng(seed)
     perm = rng.permutation(m)
-    X = X[perm]
-    y = y[perm]
-    return X, y
+    return X[perm], y[perm]
 
 
 def _softplus(t):
     """Numerically stable softplus: log(1 + exp(t))."""
-    t = np.asarray(t, dtype=np.float64)
-    return np.logaddexp(0.0, t)
+    return np.logaddexp(0.0, np.asarray(t, dtype=float))
 
 
 def _sigmoid(t):
     """Numerically stable logistic sigmoid Φ(t)."""
-    t = np.asarray(t, dtype=np.float64)
-    out = np.empty_like(t, dtype=np.float64)
+    t = np.asarray(t, dtype=float)
+    out = np.empty_like(t, dtype=float)
     pos = t >= 0
     out[pos] = 1.0 / (1.0 + np.exp(-t[pos]))
     exp_t = np.exp(t[~pos])
     out[~pos] = exp_t / (1.0 + exp_t)
     return out
-
-
-def _linear_scores(theta, X):
-    """Compute t = w0 + X @ w for theta = [w0; w]."""
-    theta = np.asarray(theta, dtype=np.float64).reshape(-1)
-    X = np.asarray(X, dtype=np.float64)
-    w0 = theta[0]
-    w = theta[1:]
-    return w0 + X @ w
 
 
 def func_llh(theta, X, y):
@@ -135,22 +87,11 @@ def func_llh(theta, X, y):
     float
         Average log-likelihood.
     """
-    X = np.asarray(X, dtype=np.float64)
-    y = np.asarray(y, dtype=np.float64).reshape(-1)
-    t = _linear_scores(theta, X)
-    # y*t - softplus(t); softplus is stable log(1+exp(t))
-    vals = y * t - _softplus(t)
-    return float(np.mean(vals))
-
-
-def _batch_indices(batch_bounds, m):
-    """Map half-open batch_bounds into row indices, including wrap-around."""
-    b_start, b_end = batch_bounds
-    if not (-m <= b_start < b_end < m):
-        # Still attempt to build indices; keep behaviour useful for Adam.
-        pass
-    # Indices in range(b_start, b_end) modulo m (handles negative windows).
-    return np.arange(b_start, b_end) % m
+    theta = np.asarray(theta, dtype=float).reshape(-1)
+    X = np.asarray(X, dtype=float)
+    y = np.asarray(y, dtype=float).reshape(-1)
+    t = theta[0] + X @ theta[1:]
+    return float(np.mean(y * t - _softplus(t)))
 
 
 def mini_batch_grad_llh(theta, X, y, batch_bounds):
@@ -158,8 +99,7 @@ def mini_batch_grad_llh(theta, X, y, batch_bounds):
 
     For batch B given by ``batch_bounds = (b_start, b_end)`` (0-based, with
     negative indices counting from the end / wrapping), returns
-    (m / |B|) * Xb_aug.T @ (yb - Φ(tb)), which equals the average over B of
-    ∇F_j with ∇F_j = m * (y_j - Φ(t_j)) * [1; x_j].
+    (m / |B|) * Xb_aug.T @ (yb - Φ(tb)).
 
     Parameters
     ----------
@@ -177,23 +117,22 @@ def mini_batch_grad_llh(theta, X, y, batch_bounds):
     ndarray, shape (p + 1,), ndim == 1
         Mini-batch gradient.
     """
-    X = np.asarray(X, dtype=np.float64)
-    y = np.asarray(y, dtype=np.float64).reshape(-1)
+    theta = np.asarray(theta, dtype=float).reshape(-1)
+    X = np.asarray(X, dtype=float)
+    y = np.asarray(y, dtype=float).reshape(-1)
     m = X.shape[0]
-    idx = _batch_indices(batch_bounds, m)
+    b_start, b_end = batch_bounds
+    idx = np.arange(b_start, b_end) % m
     Xb = X[idx]
     yb = y[idx]
     batch_size = idx.size
-    if batch_size == 0:
-        return np.zeros(X.shape[1] + 1, dtype=np.float64)
 
-    tb = _linear_scores(theta, Xb)
-    resid = yb - _sigmoid(tb)
-    # Augmented design: [1, Xb]
-    ones = np.ones((batch_size, 1), dtype=np.float64)
-    Xb_aug = np.hstack([ones, Xb])
-    grad = (m / batch_size) * (Xb_aug.T @ resid)
-    return np.asarray(grad, dtype=np.float64).reshape(-1)
+    t = theta[0] + Xb @ theta[1:]
+    resid = yb - _sigmoid(t)
+    grad = np.empty(theta.size, dtype=float)
+    grad[0] = np.sum(resid)
+    grad[1:] = Xb.T @ resid
+    return (m / batch_size) * grad
 
 
 def next_batch_bounds(batch_bounds, num_obs):
@@ -215,10 +154,9 @@ def next_batch_bounds(batch_bounds, num_obs):
         Next (b_start, b_end).
     """
     b_start, b_end = batch_bounds
-    m = num_obs
-    if 2 * b_end - b_start < m:
+    if 2 * b_end - b_start < num_obs:
         return (b_end, 2 * b_end - b_start)
-    return (b_end - m, 2 * b_end - b_start - m)
+    return (b_end - num_obs, 2 * b_end - b_start - num_obs)
 
 
 def adam(
@@ -226,7 +164,6 @@ def adam(
     func,
     mini_batch_grad,
     num_obs,
-    *,
     batch_size=128,
     alpha=0.001,
     beta1=0.9,
@@ -267,17 +204,16 @@ def adam(
     list of ndarray
         Iterates ``[theta0, theta1, ..., theta_k]`` including the start point.
     """
-    theta = np.asarray(theta0, dtype=np.float64).reshape(-1).copy()
+    theta = np.asarray(theta0, dtype=float).reshape(-1).copy()
     thetas = [theta.copy()]
     m_mom = np.zeros_like(theta)
     v_mom = np.zeros_like(theta)
 
-    b_start = 0
-    b_end = min(num_obs, batch_size)
+    bounds = (0, min(num_obs, batch_size))
     last_f = np.inf
     k = 1
     while True:
-        g = np.asarray(mini_batch_grad(theta, (b_start, b_end)), dtype=np.float64).reshape(-1)
+        g = np.asarray(mini_batch_grad(theta, bounds), dtype=float).reshape(-1)
         m_mom = beta1 * m_mom + (1.0 - beta1) * g
         v_mom = beta2 * v_mom + (1.0 - beta2) * (g * g)
         mhat = m_mom / (1.0 - beta1**k)
@@ -285,14 +221,14 @@ def adam(
         theta = theta - alpha * mhat / (np.sqrt(vhat) + epsilon)
         thetas.append(theta.copy())
 
-        next_b_start, next_b_end = next_batch_bounds((b_start, b_end), num_obs)
-        if next_b_start < b_end:
+        next_bounds = next_batch_bounds(bounds, num_obs)
+        if next_bounds[0] < bounds[1]:
             f_new = float(func(theta))
             if last_f - f_new < delta:
                 return thetas
             last_f = f_new
 
-        b_start, b_end = next_b_start, next_b_end
+        bounds = next_bounds
         k += 1
 
 
@@ -316,19 +252,18 @@ def logit(X, y):
     ndarray, shape (p + 1,)
         Last Adam iterate (intercept and weights).
     """
-    X = np.asarray(X, dtype=np.float64)
-    y = np.asarray(y, dtype=np.float64).reshape(-1)
-    m, p = X.shape
-    theta0 = np.zeros(p + 1, dtype=np.float64)
+    X = np.asarray(X, dtype=float)
+    y = np.asarray(y, dtype=float).reshape(-1)
+    theta0 = np.zeros(X.shape[1] + 1, dtype=float)
 
     def f(theta):
         return -func_llh(theta, X, y)
 
-    def g(theta, bounds):
-        return -mini_batch_grad_llh(theta, X, y, bounds)
+    def g(theta, batch_bounds):
+        return -mini_batch_grad_llh(theta, X, y, batch_bounds)
 
-    thetas = adam(theta0, f, g, m)
-    return np.asarray(thetas[-1], dtype=np.float64).reshape(-1)
+    thetas = adam(theta0, f, g, X.shape[0])
+    return thetas[-1]
 
 
 def logistic_prediction(X, theta):
@@ -348,9 +283,10 @@ def logistic_prediction(X, theta):
     ndarray, shape (m,), ndim == 1
         Predicted labels as floats in {0, 1}.
     """
-    t = _linear_scores(theta, X)
-    yhat = (t >= 0.0).astype(np.float64)
-    return yhat.reshape(-1)
+    theta = np.asarray(theta, dtype=float).reshape(-1)
+    X = np.asarray(X, dtype=float)
+    t = theta[0] + X @ theta[1:]
+    return (t >= 0.0).astype(float)
 
 
 def accuracy(y, yhat):
@@ -368,6 +304,6 @@ def accuracy(y, yhat):
     float
         Mean of (y == yhat).
     """
-    y = np.asarray(y, dtype=np.float64).reshape(-1)
-    yhat = np.asarray(yhat, dtype=np.float64).reshape(-1)
+    y = np.asarray(y, dtype=float).reshape(-1)
+    yhat = np.asarray(yhat, dtype=float).reshape(-1)
     return float(np.mean(y == yhat))
