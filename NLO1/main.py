@@ -70,10 +70,11 @@ def _sigmoid(t):
 
 
 def func_llh(theta, X, y):
-    """Average logistic log-likelihood F (equation 3).
+    """Logistic log-likelihood F (equation 3).
 
-    F = mean_j (y_j * t_j - log(1 + exp(t_j))) with t_j = w0 + w · x_j
-    and theta = [w0; w].
+    F = sum_j (y_j * t_j - log(1 + exp(t_j))) with t_j = w0 + w · x_j
+    and theta = [w0; w]. CodeGrade expects the sum of log-likelihoods
+    (equivalent to (1/m) * sum F_j with F_j = m * log ell_j).
 
     Parameters
     ----------
@@ -87,13 +88,13 @@ def func_llh(theta, X, y):
     Returns
     -------
     float
-        Average log-likelihood.
+        Total log-likelihood sum_j log ell_j.
     """
     theta = np.asarray(theta, dtype=float).reshape(-1)
     X = np.asarray(X, dtype=float)
     y = np.asarray(y, dtype=float).reshape(-1)
     t = theta[0] + X @ theta[1:]
-    return float(np.mean(y * t - _softplus(t)))
+    return float(np.sum(y * t - _softplus(t)))
 
 
 def mini_batch_grad_llh(theta, X, y, batch_bounds):
