@@ -1,7 +1,6 @@
 """Logistic regression with Adam for the Secondary Mushroom dataset (NLO1)."""
 
 import numpy as np
-import pandas as pd
 
 
 def load_data(path, seed):
@@ -28,25 +27,25 @@ def load_data(path, seed):
     y : ndarray, shape (m,)
         Float labels in {0, 1} (ndim == 1).
     """
-    data = pd.read_csv(path, sep=";")
-    class_col = data.columns[0]
+    raw = np.genfromtxt(path, delimiter=";", dtype=str, encoding="utf-8")
+    header = raw[0]
+    body = raw[1:]
+    m = body.shape[0]
     columns = []
 
-    for c in data.columns[1:]:
-        column = data[c]
-        # Numeric if every value converts to float; otherwise treat as categorical.
+    for j in range(1, body.shape[1]):
+        col = body[:, j]
         try:
-            values = column.astype(float).to_numpy()
+            values = col.astype(float)
             columns.append(values)
-        except (ValueError, TypeError):
-            values = column.astype(str).to_numpy()
-            unique_values = sorted(set(values))
+        except ValueError:
+            values = np.asarray(col, dtype=str)
+            unique_values = sorted(set(values.tolist()))
             for v in unique_values[1:]:
                 columns.append((values == v).astype(float))
 
-    m = data.shape[0]
     X = np.column_stack(columns).astype(float)
-    y = (data[class_col].astype(str).str.strip() == "poisonous").to_numpy(dtype=float)
+    y = (np.char.strip(body[:, 0]) == "poisonous").astype(float)
 
     rng = np.random.default_rng(seed)
     perm = rng.permutation(m)
