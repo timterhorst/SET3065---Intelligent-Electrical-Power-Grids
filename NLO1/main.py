@@ -1,34 +1,18 @@
-"""Logistic regression with Adam for the Secondary Mushroom dataset (NLO1)."""
-
 import numpy as np
 
 
 def load_data(path, seed):
-    """Load and encode the Secondary Mushroom CSV into design matrix X and labels y.
-
-    Reads a semicolon-separated CSV with a header row. The first column is the
-    class label (edible/poisonous); remaining columns are features. Numeric
-    features are kept as float columns. Categorical features are one-hot encoded
-    with unique levels sorted alphabetically and the first level dropped.
-    Labels are 1 for poisonous and 0 otherwise. Rows of X and entries of y are
-    shuffled with a NumPy Generator seeded by ``seed``.
-
-    Parameters
-    ----------
-    path : str
-        Path to the CSV file.
-    seed : int
-        Seed for the shuffle RNG.
-
-    Returns
-    -------
-    X : ndarray, shape (m, p)
-        Float feature matrix (ndim == 2).
-    y : ndarray, shape (m,)
-        Float labels in {0, 1} (ndim == 1).
+    """ 
+    De regels in secundary_mushroom.csv corresponderen met een hypothetische steekproef van paddenstoelen uit 173 verschillende soorten. We noemen deze 
+    regels de observaties. De eigenschappen van een specifieke paddenstoel worden gescheiden door puntkomma’s, en bevatten in volgorde de informatie uit Tabel 
+    1 (opdracht).
+    Eerste eigenschap in dataset = klasse, de andere eigenschappen in dataset = kenmerken.
+    Om iets met de data te kunnen, moet er getransformeerd worden naar numerieke data, volgens Algoritme 1. 
+    Bouwt x: numerieke kolommen als floats; categorische kolommen one-hot
+    Paddenstoel giftig is (y = 1) of eetbaar (y = 0)
+    Rijen van X en elementen van y worden geschud met een NumPy-generator met seed.
     """
     raw = np.genfromtxt(path, delimiter=";", dtype=str, encoding="utf-8")
-    header = raw[0]
     body = raw[1:]
     m = body.shape[0]
     columns = []
@@ -53,12 +37,18 @@ def load_data(path, seed):
 
 
 def _softplus(t):
-    """Numerically stable softplus: log(1 + exp(t))."""
+    """
+    Numerieke stabiele softplus: log(1 + exp(t)).
+    Voorkommt overflow bij grote t.
+    """
     return np.logaddexp(0.0, np.asarray(t, dtype=float))
 
 
 def _sigmoid(t):
-    """Numerically stable logistic sigmoid Φ(t)."""
+    """
+    Numerieke stabiele logistische sigmoid Φ(t) = 1/(1+e^{-t}).
+    Voor t ≥ 0 en t < 0 een andere formule, zodat exp niet explodeert.
+    """
     t = np.asarray(t, dtype=float)
     out = np.empty_like(t, dtype=float)
     pos = t >= 0
@@ -69,25 +59,13 @@ def _sigmoid(t):
 
 
 def func_llh(theta, X, y):
-    """Logistic log-likelihood F (equation 3).
-
-    F = sum_j (y_j * t_j - log(1 + exp(t_j))) with t_j = w0 + w · x_j
-    and theta = [w0; w]. CodeGrade expects the sum of log-likelihoods
-    (equivalent to (1/m) * sum F_j with F_j = m * log ell_j).
-
-    Parameters
-    ----------
-    theta : array_like, shape (p + 1,)
-        Intercept and weights.
-    X : array_like, shape (m, p)
-        Feature matrix.
-    y : array_like, shape (m,)
-        Labels in {0, 1}.
-
-    Returns
-    -------
-    float
-        Total log-likelihood sum_j log ell_j.
+    """
+    Gemiddelde logistische log-aannemelijkheid F (formue 3)
+    F is het gemiddelde van y·t − log(1+e^t), met t = w0 + w·x
+    theta: intercept w0 en gewichten w
+    X: kenmerkenmatrix
+    y: labels 0 of 1
+    geeft het gemiddelde van de log-aannemelijkheid
     """
     theta = np.asarray(theta, dtype=float).reshape(-1)
     X = np.asarray(X, dtype=float)
@@ -97,27 +75,11 @@ def func_llh(theta, X, y):
 
 
 def mini_batch_grad_llh(theta, X, y, batch_bounds):
-    """Mini-batch gradient of the average log-likelihood F (equation 4).
-
-    For batch B given by ``batch_bounds = (b_start, b_end)`` (0-based, with
-    negative indices counting from the end / wrapping), returns
-    (m / |B|) * Xb_aug.T @ (yb - Φ(tb)).
-
-    Parameters
-    ----------
-    theta : array_like, shape (p + 1,)
-        Intercept and weights.
-    X : array_like, shape (m, p)
-        Feature matrix.
-    y : array_like, shape (m,)
-        Labels in {0, 1}.
-    batch_bounds : tuple of int
-        (b_start, b_end) with -m ≤ b_start < b_end < m (wrap-around allowed).
-
-    Returns
-    -------
-    ndarray, shape (p + 1,), ndim == 1
-        Mini-batch gradient.
+    """
+    Mini-batch gradient van F (formule 4). 
+    Begin/eindindex negatieve indices vanaf het einde/wrap-around
+    Geeft gradiënt = (m / batchgrootte) × …
+        1D vector met de gradient
     """
     theta = np.asarray(theta, dtype=float).reshape(-1)
     X = np.asarray(X, dtype=float)
@@ -138,22 +100,9 @@ def mini_batch_grad_llh(theta, X, y, batch_bounds):
 
 
 def next_batch_bounds(batch_bounds, num_obs):
-    """Advance mini-batch bounds by one window, wrapping when a pass ends.
-
-    If ``2 * b_end - b_start < m``, returns ``(b_end, 2 * b_end - b_start)``;
-    otherwise returns ``(b_end - m, 2 * b_end - b_start - m)``.
-
-    Parameters
-    ----------
-    batch_bounds : tuple of int
-        Current (b_start, b_end).
-    num_obs : int
-        Number of observations m.
-
-    Returns
-    -------
-    tuple of int
-        Next (b_start, b_end).
+    """
+    Schuif het batch-venster één stap --> wrap als een ronde klaar is.
+    De twee formules van opdracht samenvoegen
     """
     b_start, b_end = batch_bounds
     if 2 * b_end - b_start < num_obs:
@@ -161,50 +110,23 @@ def next_batch_bounds(batch_bounds, num_obs):
     return (b_end - num_obs, 2 * b_end - b_start - num_obs)
 
 
-def adam(
-    theta0,
-    func,
-    mini_batch_grad,
-    num_obs,
-    batch_size=128,
-    alpha=0.001,
-    beta1=0.9,
-    beta2=0.999,
-    epsilon=1e-8,
-    delta=1e-8,
-):
-    """Adam optimizer for minimizing ``func`` with mini-batch gradients.
-
-    Implements Algorithm 2: bias-corrected Adam updates over successive
-    mini-batches. After each completed pass over the data (detected when the
-    next batch start is before the current batch end), evaluates ``func``.
-    Stops when the improvement ``last_f - f_new`` is smaller than ``delta``.
-
+def adam(theta0, func, mini_batch_grad, num_obs, batch_size=128, alpha=0.001, beta1=0.9, beta2=0.999, epsilon=1e-8, delta=1e-8):
+    """
+    Adam-optimaliseerder die func minimaliseert met mini-batch gradiënten.
+    Voert Algoritme 2 uit: Adam-updates met bias-correctie.
+    Na elke volle ronde over de data: bereken func.
+    Stop als de verbetering kleiner is dan delta.
     Parameters
-    ----------
-    theta0 : array_like
-        Starting parameter vector.
-    func : callable
-        Objective ``func(theta)`` to minimize.
-    mini_batch_grad : callable
-        Gradient ``mini_batch_grad(theta, batch_bounds)``.
-    num_obs : int
-        Number of observations m.
-    batch_size : int, optional
-        Mini-batch size (default 128).
-    alpha : float, optional
-        Step size (default 0.001).
-    beta1, beta2 : float, optional
-        Exponential decay rates for moment estimates.
-    epsilon : float, optional
-        Numerical stabilizer in the Adam update.
-    delta : float, optional
-        Minimum required improvement in ``func`` per pass.
-
-    Returns
-    -------
-    list of ndarray
-        Iterates ``[theta0, theta1, ..., theta_k]`` including the start point.
+        theta0 : startpunt
+        func : doelfunctie om te minimaliseren
+        mini_batch_grad : mini-batch gradiëntfunctie
+        num_obs : aantal observaties m 
+        batch_size : batchgrootte
+        alpha : staplengte
+        beta1, beta2 : vervalsnelheden voor 1e en 2e moment
+        epsilon : kleine constante tegen delen door nul
+        delta : minimale verbetering per ronde
+    Geeft lijst van alle bezochte θ’s, inclusief start.
     """
     theta = np.asarray(theta0, dtype=float).reshape(-1).copy()
     thetas = [theta.copy()]
@@ -235,24 +157,11 @@ def adam(
 
 
 def logit(X, y):
-    """Fit logistic regression by maximizing the average log-likelihood via Adam.
-
-    Starts at the zero vector of length p+1 and calls ``adam`` with default
-    hyperparameters. Because Adam minimizes, the objective and mini-batch
-    gradient are negated wrappers around ``func_llh`` and
-    ``mini_batch_grad_llh``.
-
-    Parameters
-    ----------
-    X : array_like, shape (m, p)
-        Feature matrix.
-    y : array_like, shape (m,)
-        Labels in {0, 1}.
-
-    Returns
-    -------
-    ndarray, shape (p + 1,)
-        Last Adam iterate (intercept and weights).
+    """
+    Fit logistische regressie door de gemiddelde log-aannemelijkheid te maximaliseren met Adam.
+    Start bij de nulvector van lengte p+1; roept adam aan zonder eigen defaults.
+    Adam minimmaliseert, dus we geven −F en −gradiënt mee.
+    Geeft laatste θ (w0 en w)
     """
     X = np.asarray(X, dtype=float)
     y = np.asarray(y, dtype=float).reshape(-1)
@@ -269,21 +178,10 @@ def logit(X, y):
 
 
 def logistic_prediction(X, theta):
-    """Predict binary labels with the fitted logistic model.
-
-    Returns 1 when Φ(w0 + w · x_j) ≥ 1/2 (equivalently when t_j ≥ 0), else 0.
-
-    Parameters
-    ----------
-    X : array_like, shape (m, p)
-        Feature matrix.
-    theta : array_like, shape (p + 1,)
-        Intercept and weights.
-
-    Returns
-    -------
-    ndarray, shape (m,), ndim == 1
-        Predicted labels as floats in {0, 1}.
+    """
+    Voorspel binaire labels met het gefitte model.
+    Geeft 1 als Φ ≥ ½ (gelijk aan t ≥ 0), anders 0. 
+    Geeft voorspelde labels als floats 0/1
     """
     theta = np.asarray(theta, dtype=float).reshape(-1)
     X = np.asarray(X, dtype=float)
@@ -292,19 +190,11 @@ def logistic_prediction(X, theta):
 
 
 def accuracy(y, yhat):
-    """Fraction of matching labels between ``y`` and ``yhat``.
-
-    Parameters
-    ----------
-    y : array_like, shape (m,)
-        True labels.
-    yhat : array_like, shape (m,)
-        Predicted labels.
-
-    Returns
-    -------
-    float
-        Mean of (y == yhat).
+    """
+    Fractie gelijke labels tussen y en ŷ.
+    y: echte labels
+    yhat: voorspelde labes
+    Geeft gemiddelde can (y == ŷ)
     """
     y = np.asarray(y, dtype=float).reshape(-1)
     yhat = np.asarray(yhat, dtype=float).reshape(-1)
