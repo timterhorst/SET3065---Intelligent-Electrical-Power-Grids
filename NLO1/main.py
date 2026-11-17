@@ -34,9 +34,11 @@ def load_data(path, seed):
 
     for c in data.columns[1:]:
         column = data[c]
-        if pd.api.types.is_numeric_dtype(column):
-            columns.append(column.to_numpy(dtype=float))
-        else:
+        # Numeric if every value converts to float; otherwise treat as categorical.
+        try:
+            values = column.astype(float).to_numpy()
+            columns.append(values)
+        except (ValueError, TypeError):
             values = column.astype(str).to_numpy()
             unique_values = sorted(set(values))
             for v in unique_values[1:]:
